@@ -252,11 +252,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			content = string(msg)
 
 		case CommandResultList:
-			l := newList(msg.List, msg.OnSelect, m.width, m.height)
+			l := newList(msg.List, msg.OnSelect, m.width, len(msg.List))
 			content = l.View()
 
 		case CommandResultTable:
-			table := newTable(msg.Table, msg.OnSelect, m.width, m.height)
+			table := newTable(msg.Table, msg.OnSelect, m.width, len(msg.Table))
 			content = table.View()
 		}
 
