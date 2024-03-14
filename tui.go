@@ -103,12 +103,12 @@ func initialModel(
 		}
 
 		commands := strings.Split(string(hb), "\n")
-		for i, c := range commands {
+		for _, c := range commands {
 			command := strings.TrimSpace(c)
 			if command == "" {
 				continue
 			}
-			initialHistory[i] = command
+			initialHistory = append(initialHistory, command)
 		}
 	}
 
