@@ -105,7 +105,11 @@ func initialModel(
 		commands := strings.Split(string(hb), "\n")
 		initialHistory = make([]string, len(commands))
 		for i, c := range commands {
-			initialHistory[i] = strings.TrimSpace(c)
+			command := strings.TrimSpace(c)
+			if command == "" {
+				continue
+			}
+			initialHistory[i] = command
 		}
 	}
 
