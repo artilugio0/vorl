@@ -33,8 +33,8 @@ type REPL struct {
 	historyFile string
 }
 
-func NewREPL(interpreter Interpreter, historyFile string) (*REPL, error) {
-	model, err := initialModel(interpreter, historyFile)
+func NewREPL(interpreter Interpreter, prompt string, historyFile string) (*REPL, error) {
+	model, err := initialModel(interpreter, prompt, historyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,11 @@ type model struct {
 	historyFile string
 }
 
-func initialModel(interpreter Interpreter, historyFile string) (model, error) {
+func initialModel(
+	interpreter Interpreter,
+	prompt string,
+	historyFile string,
+) (model, error) {
 	execFn := func(cmd string) tea.Cmd {
 		runCommandCmd := func() tea.Msg {
 			msg, err := interpreter.Exec(cmd)
@@ -105,7 +109,7 @@ func initialModel(interpreter Interpreter, historyFile string) (model, error) {
 		}
 	}
 
-	input := newInput("vor >", execFn, interpreter.Suggest, initialHistory)
+	input := newInput(prompt, execFn, interpreter.Suggest, initialHistory)
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot

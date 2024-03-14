@@ -6,6 +6,7 @@ import (
 )
 
 type replInput struct {
+	historyIndex    int
 	textInput       textinput.Model
 	execFn          func(string) tea.Cmd
 	suggestFn       func(string) []string
@@ -38,21 +39,37 @@ func (ri replInput) Update(msg tea.Msg) (replInput, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	input := ri.textInput.Value()
-	if msg, ok := msg.(tea.KeyMsg); ok && msg.Type == tea.KeyEnter {
-		ri.textInput.SetValue("")
+	if msg, ok := msg.(tea.KeyMsg); ok {
+		switch msg.Type {
+		case tea.KeyEnter:
+			ri.textInput.SetValue("")
 
-		if input != "" {
-			cmds = append(cmds, tea.Printf("%s%s", ri.textInput.Prompt, input))
+			if input != "" {
+				cmds = append(cmds, tea.Printf("%s%s", ri.textInput.Prompt, input))
 
-			if ri.execFn != nil {
-				cmds = append(
-					cmds,
-					ri.execFn(input),
-				)
-				ri.executedCommand = true
-				ri.history = append(ri.history, input)
+				if ri.execFn != nil {
+					cmds = append(
+						cmds,
+						ri.execFn(input),
+					)
+					ri.executedCommand = true
+					ri.history = append(ri.history, input)
+				}
 			}
+
+		case tea.KeyUp:
+			ri.historyIndex = min(ri.historyIndex+1, len(ri.history))
+
+		case tea.KeyDown:
+			ri.historyIndex = max(ri.historyIndex-1, 0)
+
+		default:
+			ri.historyIndex = len(ri.history)
 		}
+	}
+
+	if ri.historyIndex != 0 {
+		ri.textInput.SetValue(ri.history[len(ri.history)-ri.historyIndex])
 	}
 
 	suggestions := ri.suggestFn(input)
