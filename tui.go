@@ -95,7 +95,7 @@ func initialModel(
 		return tea.Batch(runCommandCmd, sendCommandExecutedMsg)
 	}
 
-	var initialHistory []string
+	initialHistory := []string{}
 	if historyFile != "" {
 		hb, err := os.ReadFile(historyFile)
 		if err != nil {
@@ -103,7 +103,6 @@ func initialModel(
 		}
 
 		commands := strings.Split(string(hb), "\n")
-		initialHistory = make([]string, len(commands))
 		for i, c := range commands {
 			command := strings.TrimSpace(c)
 			if command == "" {

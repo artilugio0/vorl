@@ -43,6 +43,7 @@ func (ri replInput) Update(msg tea.Msg) (replInput, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyEnter:
 			ri.textInput.SetValue("")
+			ri.historyIndex = 0
 
 			if input != "" {
 				cmds = append(cmds, tea.Printf("%s%s", ri.textInput.Prompt, input))
