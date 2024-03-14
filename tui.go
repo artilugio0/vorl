@@ -83,7 +83,7 @@ func initialModel(
 			}
 
 			if msg == nil {
-				msg = CommandResultSimple("")
+				msg = CommandResultEmpty{}
 			}
 			return msg
 		}
@@ -215,6 +215,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			})
 		}
 
+	case CommandResultEmpty:
+		m.listResult = nil
+		m.tableResult = nil
+		m.state = replStateReadingInput
+
 	case CommandResultSimple:
 		cmds = append(cmds, tea.Printf("%+v", msg))
 		m.listResult = nil
@@ -232,6 +237,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.listResult = nil
 		m.tableResult = &table
 		m.state = replStateReadingInputAndTable
+
+	case CommandResultSaveTo:
+		m.listResult = nil
+		m.tableResult = nil
+		m.state = replStateReadingInput
+		var content string
+
+		switch msg := msg.Result.(type) {
+		case CommandResultEmpty:
+			break
+
+		case CommandResultSimple:
+			content = string(msg)
+
+		case CommandResultList:
+			l := newList(msg.List, msg.OnSelect, m.width, m.height)
+			content = l.View()
+
+		case CommandResultTable:
+			table := newTable(msg.Table, msg.OnSelect, m.width, m.height)
+			content = table.View()
+		}
+
+		cmds = append(cmds, func() tea.Msg {
+			err := os.WriteFile(msg.File, []byte(content), 0600)
+			if err != nil {
+				return commandError(err)
+			}
+			return nil
+		})
 
 	default:
 		var cmd tea.Cmd
@@ -295,18 +330,14 @@ func (m model) View() string {
 	return view
 }
 
-func (m model) executeCommand(cmd string) tea.Cmd {
-	return func() tea.Msg {
-		result, err := m.interpreter.Exec(cmd)
-		if err != nil {
-			return commandError(err)
-		}
+type commandError error
 
-		return result
-	}
+type CommandResultSaveTo struct {
+	File   string
+	Result interface{}
 }
 
-type commandError error
+type CommandResultEmpty struct{}
 
 type CommandResultSimple string
 
