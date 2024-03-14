@@ -73,12 +73,15 @@ type model struct {
 func initialModel(interpreter Interpreter, historyFile string) (model, error) {
 	execFn := func(cmd string) tea.Cmd {
 		runCommandCmd := func() tea.Msg {
-			result, err := interpreter.Exec(cmd)
+			msg, err := interpreter.Exec(cmd)
 			if err != nil {
 				return commandError(err)
 			}
 
-			return result
+			if msg == nil {
+				msg = CommandResultSimple("")
+			}
+			return msg
 		}
 
 		sendCommandExecutedMsg := func() tea.Msg {

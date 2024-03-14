@@ -90,7 +90,11 @@ func (rt replTable) Update(msg tea.Msg) (replTable, tea.Cmd) {
 				row := rt.table.SelectedRow()
 				cmds = append(cmds, tea.Println(rt.table.View()))
 				cmds = append(cmds, func() tea.Msg {
-					return rt.execFn(row)
+					msg := rt.execFn(row)
+					if msg == nil {
+						msg = CommandResultSimple("")
+					}
+					return msg
 				})
 				rt.executedCommand = true
 			}

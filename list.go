@@ -96,7 +96,11 @@ func (l replList) Update(msg tea.Msg) (replList, tea.Cmd) {
 			if l.fn != nil {
 				cmds = append(cmds, tea.Println(l.list.View()))
 				cmds = append(cmds, func() tea.Msg {
-					return l.fn(string(l.list.SelectedItem().(listItem)))
+					msg := l.fn(string(l.list.SelectedItem().(listItem)))
+					if msg == nil {
+						msg = CommandResultSimple("")
+					}
+					return msg
 				})
 				l.executedCommand = true
 			}
