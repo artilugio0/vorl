@@ -86,7 +86,7 @@ func (rt replTable) Update(msg tea.Msg) (replTable, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			if rt.execFn != nil {
+			if rt.execFn != nil && len(rt.table.Rows()) > 0 {
 				row := rt.table.SelectedRow()
 				cmds = append(cmds, tea.Println(rt.table.View()))
 				cmds = append(cmds, func() tea.Msg {
