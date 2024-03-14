@@ -62,9 +62,6 @@ func (ri replInput) Update(msg tea.Msg) (replInput, tea.Cmd) {
 
 		case tea.KeyDown:
 			ri.historyIndex = max(ri.historyIndex-1, 0)
-
-		default:
-			ri.historyIndex = len(ri.history)
 		}
 	}
 
