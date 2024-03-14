@@ -13,7 +13,13 @@ type replInput struct {
 	executedCommand bool
 }
 
-func newInput(prompt string, execFn func(string) tea.Cmd, suggestFn func(string) []string) replInput {
+func newInput(
+	prompt string,
+	execFn func(string) tea.Cmd,
+	suggestFn func(string) []string,
+	initialHistory []string,
+) replInput {
+
 	textInput := textinput.New()
 	textInput.Prompt = prompt + " "
 	textInput.ShowSuggestions = true
@@ -23,6 +29,7 @@ func newInput(prompt string, execFn func(string) tea.Cmd, suggestFn func(string)
 		textInput: textInput,
 		execFn:    execFn,
 		suggestFn: suggestFn,
+		history:   initialHistory,
 	}
 }
 

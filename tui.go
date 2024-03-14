@@ -2,6 +2,8 @@ package vorl
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -27,13 +29,19 @@ type Interpreter interface {
 }
 
 type REPL struct {
-	model model
+	model       model
+	historyFile string
 }
 
-func NewREPL(interpreter Interpreter) *REPL {
-	return &REPL{
-		model: initialModel(interpreter),
+func NewREPL(interpreter Interpreter, historyFile string) (*REPL, error) {
+	model, err := initialModel(interpreter, historyFile)
+	if err != nil {
+		return nil, err
 	}
+
+	return &REPL{
+		model: model,
+	}, nil
 }
 
 func (r *REPL) Run() error {
@@ -58,11 +66,13 @@ type model struct {
 
 	height int
 	width  int
+
+	historyFile string
 }
 
-func initialModel(interpreter Interpreter) model {
+func initialModel(interpreter Interpreter, historyFile string) (model, error) {
 	execFn := func(cmd string) tea.Cmd {
-		return func() tea.Msg {
+		runCommandCmd := func() tea.Msg {
 			result, err := interpreter.Exec(cmd)
 			if err != nil {
 				return commandError(err)
@@ -70,9 +80,29 @@ func initialModel(interpreter Interpreter) model {
 
 			return result
 		}
+
+		sendCommandExecutedMsg := func() tea.Msg {
+			return commandExecuted(cmd)
+		}
+
+		return tea.Batch(runCommandCmd, sendCommandExecutedMsg)
 	}
 
-	input := newInput("vor >", execFn, interpreter.Suggest)
+	var initialHistory []string
+	if historyFile != "" {
+		hb, err := os.ReadFile(historyFile)
+		if err != nil {
+			return model{}, err
+		}
+
+		commands := strings.Split(string(hb), "\n")
+		initialHistory = make([]string, len(commands))
+		for i, c := range commands {
+			initialHistory[i] = strings.TrimSpace(c)
+		}
+	}
+
+	input := newInput("vor >", execFn, interpreter.Suggest, initialHistory)
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -83,7 +113,8 @@ func initialModel(interpreter Interpreter) model {
 		textInput:   input,
 		state:       replStateReadingInput,
 		spinner:     sp,
-	}
+		historyFile: historyFile,
+	}, nil
 }
 
 func (m model) Init() tea.Cmd {
@@ -157,6 +188,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tableResult = nil
 		m.state = replStateReadingInput
 
+	case commandExecuted:
+		if m.historyFile != "" {
+			cmds = append(cmds, func() tea.Msg {
+				hf, err := os.OpenFile(m.historyFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+				if err != nil {
+					return commandError(err)
+				}
+				defer hf.Close()
+
+				if _, err := hf.WriteString(string(msg) + "\n"); err != nil {
+					return commandError(err)
+				}
+
+				return nil
+			})
+		}
+
 	case CommandResultSimple:
 		cmds = append(cmds, tea.Printf("%+v", msg))
 		m.listResult = nil
@@ -213,7 +261,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = replStateExecutingCommand
 			m.tableResult = nil
 		}
-
 	}
 
 	return m, tea.Batch(cmds...)
@@ -262,3 +309,5 @@ type CommandResultTable struct {
 	Table    [][]string
 	OnSelect func(selected []string) interface{}
 }
+
+type commandExecuted string
