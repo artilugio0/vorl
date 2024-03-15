@@ -221,7 +221,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = replStateReadingInput
 
 	case CommandResultSimple:
-		cmds = append(cmds, tea.Printf("%+v", msg))
+		style := lipgloss.NewStyle().Width(m.width)
+		cmds = append(cmds, tea.Println(style.Render(string(msg))))
 		m.listResult = nil
 		m.tableResult = nil
 		m.state = replStateReadingInput
