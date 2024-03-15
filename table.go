@@ -19,18 +19,43 @@ func newTable(
 	width int,
 	height int,
 ) replTable {
-	tableRows := make([]table.Row, len(rows)-1)
-	for i, r := range rows[1:] {
-		tableRows[i] = r
+	equalColSize := width/len(rows[0]) - 2
+
+	widths := make([]int, len(rows[0]))
+	for _, row := range rows {
+		for i, col := range row {
+			widths[i] = max(widths[i], len(col))
+		}
 	}
 
-	maxWidth := width / len(rows[0])
-	tableColumns := make([]table.Column, len(rows[0]))
-	for i, r := range rows[0] {
-		tableColumns[i] = table.Column{
-			Title: r,
-			Width: maxWidth,
+	bigWidthsSum := 0
+	smallWidthsSum := 0
+	for _, w := range widths {
+		if w > equalColSize {
+			bigWidthsSum += w
+		} else {
+			smallWidthsSum += w
 		}
+	}
+	remainingWidth := equalColSize*len(rows[0]) - smallWidthsSum
+
+	for i, w := range widths {
+		if w > equalColSize {
+			widths[i] = int(float64(remainingWidth) * float64(w) / float64(bigWidthsSum))
+		}
+	}
+
+	tableColumns := make([]table.Column, len(rows[0]))
+	for i, col := range rows[0] {
+		tableColumns[i] = table.Column{
+			Title: col,
+			Width: widths[i],
+		}
+	}
+
+	tableRows := make([]table.Row, len(rows)-1)
+	for i, row := range rows[1:] {
+		tableRows[i] = row
 	}
 
 	t := table.New(
