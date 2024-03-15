@@ -11,7 +11,6 @@ type replTable struct {
 	interactiveMode bool
 	execFn          func([]string) interface{}
 	executedCommand bool
-	maxWidth        int
 }
 
 func newTable(
@@ -39,7 +38,6 @@ func newTable(
 		table.WithRows(tableRows),
 		table.WithFocused(true),
 		table.WithHeight(min(len(rows)-1, height-6)),
-		table.WithWidth(width),
 	)
 
 	s := table.DefaultStyles()
@@ -56,9 +54,8 @@ func newTable(
 	t.SetStyles(s)
 
 	return replTable{
-		table:    t,
-		execFn:   execFn,
-		maxWidth: maxWidth,
+		table:  t,
+		execFn: execFn,
 	}
 }
 
