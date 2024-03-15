@@ -49,7 +49,6 @@ func newTable(
 		BorderBottom(true).
 		Bold(false)
 
-	s.Cell = s.Cell.Width(maxWidth)
 	s.Selected = s.Cell.Copy()
 	s.Selected.Padding(0)
 	s.Selected.Margin(0)
@@ -76,7 +75,6 @@ func (rt replTable) Update(msg tea.Msg) (replTable, tea.Cmd) {
 		BorderForeground(lipgloss.Color("240")).
 		BorderBottom(true).
 		Bold(false)
-	s.Cell = s.Cell.Width(rt.maxWidth)
 
 	if !rt.interactiveMode {
 		s.Selected = s.Cell.Copy()
