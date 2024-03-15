@@ -1,8 +1,18 @@
 package vorl
 
 import (
+	"slices"
+	"strings"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+)
+
+type replInputState int
+
+const (
+	replInputStateReadingInput replInputState = iota
+	replInputStateReverseSearch
 )
 
 type replInput struct {
@@ -12,6 +22,11 @@ type replInput struct {
 	suggestFn       func(string) []string
 	history         []string
 	executedCommand bool
+
+	state                replInputState
+	reverseSearchInput   string
+	reverseSearchResults []string
+	reverseSearchIndex   int
 }
 
 func newInput(
@@ -36,6 +51,23 @@ func newInput(
 
 func (ri replInput) Update(msg tea.Msg) (replInput, tea.Cmd) {
 	ri.executedCommand = false
+	var cmds []tea.Cmd
+
+	switch ri.state {
+	case replInputStateReadingInput:
+		var cmd tea.Cmd
+		ri, cmd = ri.readingInputUpdate(msg)
+		cmds = append(cmds, cmd)
+
+	case replInputStateReverseSearch:
+		var cmd tea.Cmd
+		ri, cmd = ri.reverseSearchUpdate(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	return ri, tea.Batch(cmds...)
+}
+func (ri replInput) readingInputUpdate(msg tea.Msg) (replInput, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	input := ri.textInput.Value()
@@ -64,6 +96,9 @@ func (ri replInput) Update(msg tea.Msg) (replInput, tea.Cmd) {
 		case tea.KeyDown:
 			ri.historyIndex = max(ri.historyIndex-1, 0)
 
+		case tea.KeyCtrlR:
+			ri.state = replInputStateReverseSearch
+
 		default:
 			ri.historyIndex = 0
 		}
@@ -84,6 +119,71 @@ func (ri replInput) Update(msg tea.Msg) (replInput, tea.Cmd) {
 	return ri, tea.Batch(cmds...)
 }
 
+func (ri replInput) reverseSearchUpdate(msg tea.Msg) (replInput, tea.Cmd) {
+	if msg, ok := msg.(tea.KeyMsg); ok {
+		switch msg.Type {
+		case tea.KeyEnter:
+			newInput := ""
+			if len(ri.reverseSearchResults) > 0 {
+				newInput = ri.reverseSearchResults[ri.reverseSearchIndex]
+			}
+			ri.textInput.SetValue(newInput)
+			ri.textInput.SetCursor(len(newInput))
+
+			ri.reverseSearchInput = ""
+			ri.state = replInputStateReadingInput
+			ri.reverseSearchResults = []string{}
+
+		case tea.KeyCtrlC:
+			ri.reverseSearchInput = ""
+			ri.state = replInputStateReadingInput
+			ri.reverseSearchResults = []string{}
+
+		case tea.KeyCtrlR:
+			ri.reverseSearchIndex = min(ri.reverseSearchIndex+1, len(ri.reverseSearchResults)-1)
+
+		case tea.KeyBackspace:
+			if len(ri.reverseSearchInput) == 0 {
+				break
+			}
+
+			ri.reverseSearchInput = ri.reverseSearchInput[:len(ri.reverseSearchInput)-1]
+
+			if len(ri.reverseSearchInput) == 0 {
+				ri.reverseSearchResults = []string{}
+				break
+			}
+
+			for _, histInput := range ri.history {
+				if strings.Contains(histInput, ri.reverseSearchInput) {
+					ri.reverseSearchResults = append(ri.reverseSearchResults, histInput)
+				}
+			}
+
+			slices.Reverse(ri.reverseSearchResults)
+
+		default:
+			if len(msg.String()) > 1 {
+				break
+			}
+
+			ri.reverseSearchIndex = 0
+			ri.reverseSearchInput += msg.String()
+			ri.reverseSearchResults = []string{}
+
+			for _, histInput := range ri.history {
+				if strings.Contains(histInput, ri.reverseSearchInput) {
+					ri.reverseSearchResults = append(ri.reverseSearchResults, histInput)
+				}
+			}
+
+			slices.Reverse(ri.reverseSearchResults)
+		}
+	}
+
+	return ri, nil
+}
+
 func (ri replInput) ExecutedCommand() bool {
 	return ri.executedCommand
 }
@@ -93,5 +193,18 @@ func (ri replInput) Value() string {
 }
 
 func (ri replInput) View() string {
-	return ri.textInput.View()
+	switch ri.state {
+	case replInputStateReverseSearch:
+		searchResult := ""
+		if len(ri.reverseSearchResults) > 0 {
+			searchResult = ri.reverseSearchResults[ri.reverseSearchIndex]
+		}
+		return "rs: '" + ri.reverseSearchInput + "' " + ri.textInput.Prompt + " " + searchResult
+
+	case replInputStateReadingInput:
+		return ri.textInput.View()
+
+	default:
+		return ri.textInput.View()
+	}
 }
