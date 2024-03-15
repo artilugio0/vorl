@@ -11,6 +11,7 @@ type replTable struct {
 	interactiveMode bool
 	execFn          func([]string) interface{}
 	executedCommand bool
+	maxWidth        int
 }
 
 func newTable(
@@ -24,11 +25,12 @@ func newTable(
 		tableRows[i] = r
 	}
 
+	maxWidth := width / len(rows[0])
 	tableColumns := make([]table.Column, len(rows[0]))
 	for i, r := range rows[0] {
 		tableColumns[i] = table.Column{
 			Title: r,
-			Width: width / len(rows[0]),
+			Width: maxWidth,
 		}
 	}
 
@@ -46,7 +48,7 @@ func newTable(
 		BorderBottom(true).
 		Bold(false)
 
-	s.Cell.UnsetInline()
+	s.Cell = s.Cell.MaxWidth(maxWidth)
 	s.Selected = s.Cell.Copy()
 	s.Selected.Padding(0)
 	s.Selected.Margin(0)
@@ -54,8 +56,9 @@ func newTable(
 	t.SetStyles(s)
 
 	return replTable{
-		table:  t,
-		execFn: execFn,
+		table:    t,
+		execFn:   execFn,
+		maxWidth: maxWidth,
 	}
 }
 
@@ -72,7 +75,7 @@ func (rt replTable) Update(msg tea.Msg) (replTable, tea.Cmd) {
 		BorderForeground(lipgloss.Color("240")).
 		BorderBottom(true).
 		Bold(false)
-	s.Cell.UnsetInline()
+	s.Cell = s.Cell.MaxWidth(rt.maxWidth)
 
 	if !rt.interactiveMode {
 		s.Selected = s.Cell.Copy()
