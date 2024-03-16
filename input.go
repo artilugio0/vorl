@@ -90,6 +90,10 @@ func (ri replInput) readingInputUpdate(msg tea.Msg) (replInput, tea.Cmd) {
 				}
 			}
 
+		case tea.KeyCtrlC:
+			ri.textInput.SetValue("")
+			ri.historyIndex = 0
+
 		case tea.KeyUp:
 			ri.historyIndex = min(ri.historyIndex+1, len(ri.history))
 

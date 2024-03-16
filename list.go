@@ -150,6 +150,10 @@ func (l replList) InteractiveMode() bool {
 	return l.interactiveMode
 }
 
+func (l replList) SettingFilter() bool {
+	return l.list.SettingFilter()
+}
+
 type listItem string
 
 func (l listItem) FilterValue() string {

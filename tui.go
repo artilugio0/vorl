@@ -138,7 +138,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlD:
-			return m, tea.Quit
+			if m.state == replStateReadingInput ||
+				m.state == replStateReadingInputAndTable ||
+				m.state == replStateReadingInputAndList ||
+				m.state == replStateExecutingCommand {
+
+				return m, tea.Quit
+			}
 
 		case tea.KeyCtrlUp, tea.KeyCtrlK:
 			if m.listResult != nil {
@@ -151,7 +157,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.tableResult.SetInteractiveMode(true)
 			}
 
-		case tea.KeyCtrlDown, tea.KeyCtrlJ:
+		case tea.KeyCtrlDown, tea.KeyCtrlJ, tea.KeyCtrlC:
 			if m.listResult != nil {
 				m.state = replStateReadingInputAndList
 				m.listResult.SetInteractiveMode(false)
@@ -185,6 +191,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, cmd)
 				m.tableResult = nil
 				m.state = replStateReadingInput
+			}
+
+		default:
+			if msg.String() == "q" {
+				switch m.state {
+				case replStateTableInteraction:
+					m.state = replStateReadingInputAndTable
+					m.tableResult.SetInteractiveMode(false)
+					newTable, cmd := m.tableResult.Update(msg)
+					m.tableResult = &newTable
+					return m, cmd
+
+				case replStateListInteraction:
+					if !m.listResult.SettingFilter() {
+						m.state = replStateReadingInputAndList
+						m.listResult.SetInteractiveMode(false)
+						newList, cmd := m.listResult.Update(msg)
+						m.listResult = &newList
+						return m, cmd
+					}
+				}
 			}
 		}
 
