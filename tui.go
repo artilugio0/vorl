@@ -99,7 +99,9 @@ func initialModel(
 	if historyFile != "" {
 		hb, err := os.ReadFile(historyFile)
 		if err != nil {
-			return model{}, err
+			if !os.IsNotExist(err) {
+				return model{}, err
+			}
 		}
 
 		commands := strings.Split(string(hb), "\n")
