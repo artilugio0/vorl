@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -50,6 +51,10 @@ Accept-Language: en-US,en;q=0.5
 		return vorl.CommandResultList{
 			List: []string{"a", "b", "bc", "c", "cd"},
 		}, nil
+	}
+
+	if input == "error" {
+		return nil, fmt.Errorf("this is an error!!!")
 	}
 
 	return vorl.CommandResultTable{

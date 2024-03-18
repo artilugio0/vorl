@@ -241,7 +241,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 
 	case commandError:
-		cmds = append(cmds, tea.Printf("ERROR: %v", msg))
+		output := fmt.Sprintf("ERROR: %v", msg)
+		if m.state == replStateNonInteractive {
+			m.nonInteractiveSimpleOutput = output
+		} else {
+			cmds = append(cmds, tea.Println(output))
+		}
 		m.listResult = nil
 		m.tableResult = nil
 		m.state = replStateReadingInput
@@ -391,7 +396,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.nonInteractiveSimpleOutput != "" {
-		return m.nonInteractiveSimpleOutput
+		return m.nonInteractiveSimpleOutput + "\n"
 	}
 
 	view := ""
