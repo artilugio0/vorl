@@ -396,7 +396,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.nonInteractiveSimpleOutput != "" {
-		return m.nonInteractiveSimpleOutput + "\n"
+		if m.nonInteractiveSimpleOutput[:len(m.nonInteractiveSimpleOutput)-1] != "\n" {
+			return m.nonInteractiveSimpleOutput + "\n"
+		}
+
+		return m.nonInteractiveSimpleOutput
 	}
 
 	view := ""
