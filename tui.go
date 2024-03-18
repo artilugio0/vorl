@@ -2,6 +2,7 @@ package vorl
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/term"
 )
 
 type replState int
@@ -20,7 +22,6 @@ const (
 	replStateExecutingCommand
 	replStateListInteraction
 	replStateTableInteraction
-	replStateNonInteractive
 )
 
 type Interpreter interface {
@@ -53,12 +54,38 @@ func (r *REPL) Run() error {
 }
 
 func (r *REPL) RunNonInteractive(command string) error {
-	r.model.nonInteractiveCommand = command
-	r.model.state = replStateNonInteractive
-	p := tea.NewProgram(r.model)
+	result, err := r.model.interpreter.Exec(command)
+	if err != nil {
+		return err
+	}
 
-	_, err := p.Run()
-	return err
+	switch result := result.(type) {
+	case CommandResultEmpty:
+		return nil
+
+	case CommandResultSimple:
+		fmt.Println(string(result))
+
+	case CommandResultTable:
+		width, _, err := term.GetSize(0)
+		if err != nil {
+			return err
+		}
+
+		table := newTable(result.Table, nil, width, math.MaxInt)
+		fmt.Println(table.View())
+
+	case CommandResultList:
+		width, _, err := term.GetSize(0)
+		if err != nil {
+			return err
+		}
+
+		list := newList(result.List, nil, width, math.MaxInt)
+		fmt.Println(list.View())
+	}
+
+	return nil
 }
 
 type model struct {
@@ -78,9 +105,6 @@ type model struct {
 	width  int
 
 	historyFile string
-
-	nonInteractiveCommand      string
-	nonInteractiveSimpleOutput string
 }
 
 func initialModel(
@@ -143,13 +167,7 @@ func initialModel(
 }
 
 func (m model) Init() tea.Cmd {
-	if m.nonInteractiveCommand == "" {
-		return tea.Batch(textinput.Blink, m.spinner.Tick)
-	}
-
-	return func() tea.Msg {
-		return runNonInteractiveCommand(m.nonInteractiveCommand)
-	}
+	return tea.Batch(textinput.Blink, m.spinner.Tick)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -242,11 +260,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commandError:
 		output := fmt.Sprintf("ERROR: %v", msg)
-		if m.state == replStateNonInteractive {
-			m.nonInteractiveSimpleOutput = output
-		} else {
-			cmds = append(cmds, tea.Println(output))
-		}
+		cmds = append(cmds, tea.Println(output))
 		m.listResult = nil
 		m.tableResult = nil
 		m.state = replStateReadingInput
@@ -276,11 +290,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case CommandResultSimple:
 		style := lipgloss.NewStyle().Width(m.width)
 		output := style.Render(string(msg))
-		if m.state == replStateNonInteractive {
-			m.nonInteractiveSimpleOutput = output
-		} else {
-			cmds = append(cmds, tea.Println(output))
-		}
+		cmds = append(cmds, tea.Println(output))
 
 		m.listResult = nil
 		m.tableResult = nil
@@ -328,33 +338,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return nil
 		})
 
-	case runNonInteractiveCommand:
-		if m.width == 0 {
-			return m, func() tea.Msg {
-				return runNonInteractiveCommand(msg)
-			}
-		}
-
-		return m, func() tea.Msg {
-			msg, err := m.interpreter.Exec(m.nonInteractiveCommand)
-			if err != nil {
-				return commandError(err)
-			}
-
-			if msg == nil {
-				msg = CommandResultEmpty{}
-			}
-			return msg
-		}
 	default:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		cmds = append(cmds, cmd)
-	}
-
-	// If non interactive command was executed, quit
-	if m.state != replStateNonInteractive && m.nonInteractiveCommand != "" {
-		return m, tea.Quit
 	}
 
 	switch m.state {
@@ -395,14 +382,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	if m.nonInteractiveSimpleOutput != "" {
-		if m.nonInteractiveSimpleOutput[:len(m.nonInteractiveSimpleOutput)-1] != "\n" {
-			return m.nonInteractiveSimpleOutput + "\n"
-		}
-
-		return m.nonInteractiveSimpleOutput
-	}
-
 	view := ""
 
 	if m.listResult != nil {
@@ -415,7 +394,7 @@ func (m model) View() string {
 
 	if m.state == replStateExecutingCommand {
 		view += fmt.Sprintf("%s executing...\n", m.spinner.View())
-	} else if m.nonInteractiveCommand == "" {
+	} else {
 		view += m.textInput.View() + "\n"
 	}
 
@@ -423,8 +402,6 @@ func (m model) View() string {
 }
 
 type commandError error
-
-type runNonInteractiveCommand string
 
 type CommandResultSaveTo struct {
 	File   string

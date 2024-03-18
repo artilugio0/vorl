@@ -57,6 +57,16 @@ Accept-Language: en-US,en;q=0.5
 		return nil, fmt.Errorf("this is an error!!!")
 	}
 
+	if input == "long" {
+		l := []string{}
+		for i := 0; i < 300; i++ {
+			l = append(l, fmt.Sprintf("line %d", i))
+		}
+		return vorl.CommandResultList{
+			List: l,
+		}, nil
+	}
+
 	return vorl.CommandResultTable{
 		Table: [][]string{
 			{"n", "col1", "col2"},
