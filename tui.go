@@ -20,6 +20,7 @@ const (
 	replStateExecutingCommand
 	replStateListInteraction
 	replStateTableInteraction
+	replStateNonInteractive
 )
 
 type Interpreter interface {
@@ -51,6 +52,15 @@ func (r *REPL) Run() error {
 	return err
 }
 
+func (r *REPL) RunNonInteractive(command string) error {
+	r.model.nonInteractiveCommand = command
+	r.model.state = replStateNonInteractive
+	p := tea.NewProgram(r.model)
+
+	_, err := p.Run()
+	return err
+}
+
 type model struct {
 	interpreter Interpreter
 
@@ -68,6 +78,9 @@ type model struct {
 	width  int
 
 	historyFile string
+
+	nonInteractiveCommand      string
+	nonInteractiveSimpleOutput string
 }
 
 func initialModel(
@@ -130,7 +143,13 @@ func initialModel(
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(textinput.Blink, m.spinner.Tick)
+	if m.nonInteractiveCommand == "" {
+		return tea.Batch(textinput.Blink, m.spinner.Tick)
+	}
+
+	return func() tea.Msg {
+		return runNonInteractiveCommand(m.nonInteractiveCommand)
+	}
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -251,7 +270,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case CommandResultSimple:
 		style := lipgloss.NewStyle().Width(m.width)
-		cmds = append(cmds, tea.Println(style.Render(string(msg))))
+		output := style.Render(string(msg))
+		if m.state == replStateNonInteractive {
+			m.nonInteractiveSimpleOutput = output
+		} else {
+			cmds = append(cmds, tea.Println(output))
+		}
+
 		m.listResult = nil
 		m.tableResult = nil
 		m.state = replStateReadingInput
@@ -298,10 +323,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return nil
 		})
 
+	case runNonInteractiveCommand:
+		if m.width == 0 {
+			return m, func() tea.Msg {
+				return runNonInteractiveCommand(msg)
+			}
+		}
+
+		return m, func() tea.Msg {
+			msg, err := m.interpreter.Exec(m.nonInteractiveCommand)
+			if err != nil {
+				return commandError(err)
+			}
+
+			if msg == nil {
+				msg = CommandResultEmpty{}
+			}
+			return msg
+		}
 	default:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		cmds = append(cmds, cmd)
+	}
+
+	// If non interactive command was executed, quit
+	if m.state != replStateNonInteractive && m.nonInteractiveCommand != "" {
+		return m, tea.Quit
 	}
 
 	switch m.state {
@@ -342,6 +390,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	if m.nonInteractiveSimpleOutput != "" {
+		return m.nonInteractiveSimpleOutput
+	}
+
 	view := ""
 
 	if m.listResult != nil {
@@ -354,13 +406,16 @@ func (m model) View() string {
 
 	if m.state == replStateExecutingCommand {
 		view += fmt.Sprintf("%s executing...\n", m.spinner.View())
-	} else {
+	} else if m.nonInteractiveCommand == "" {
 		view += m.textInput.View() + "\n"
 	}
+
 	return view
 }
 
 type commandError error
+
+type runNonInteractiveCommand string
 
 type CommandResultSaveTo struct {
 	File   string

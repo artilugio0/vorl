@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 
 	"github.com/artilugio0/vorl"
@@ -10,6 +11,14 @@ func main() {
 	repl, err := vorl.NewREPL(interpreter{}, "vor >", "")
 	if err != nil {
 		panic(err)
+	}
+
+	args := os.Args
+	if len(args) > 1 {
+		if err := repl.RunNonInteractive(args[1]); err != nil {
+			panic(err)
+		}
+		return
 	}
 
 	if err := repl.Run(); err != nil {
